@@ -41,6 +41,7 @@ InfoStack/
 │   │   └── App.jsx
 │   └── vite.config.js
 │
+├── .gitattributes
 ├── .gitignore
 └── README.md
 ```
