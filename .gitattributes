@@ -1,0 +1,30 @@
+# Normalize line endings for all text files
+* text=auto
+
+# Explicit text files
+*.js      text
+*.jsx     text
+*.ts      text
+*.tsx     text
+*.json    text
+*.md      text
+*.css     text
+*.html    text
+*.yml     text
+*.yaml    text
+*.env.example text
+*.txt     text
+
+# Shell & config
+*.sh      text eol=lf
+Dockerfile text eol=lf
+docker-compose.yml text eol=lf
+
+# Treat binary files correctly
+*.png     binary
+*.jpg     binary
+*.jpeg    binary
+*.gif     binary
+*.svg     binary
+*.pdf     binary
+*.ico     binary
