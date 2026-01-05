@@ -8,7 +8,6 @@ import textRoutes from "./routes/text.js";
 import websiteRoutes from "./routes/website.js";
 
 dotenv.config();
-console.log("Gemini key loaded:", process.env.GEMINI_API_KEY?.slice(0, 6));
 
 const app = express();
 
