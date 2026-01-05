@@ -11,18 +11,18 @@ router.post("/", async (req, res) => {
       return res.status(400).json({ error: "Question is required" });
     }
 
-    const answer = await askQuestion({ question, mode });
+    // ✅ askQuestion already returns { answer, sources }
+    const result = await askQuestion({ question, mode });
 
-    // ✅ Always return a string answer
-    return res.json({ answer });
+    // ✅ Forward it directly (DO NOT WRAP AGAIN)
+    return res.json(result);
 
   } catch (err) {
     console.error("Query error:", err);
 
-    // ❌ No Gemini-specific logic here
-    // ✅ Generic backend failure only
     return res.status(500).json({
       answer: "⚠️ Something went wrong while processing your request.",
+      sources: [],
     });
   }
 });

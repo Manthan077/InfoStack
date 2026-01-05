@@ -27,26 +27,30 @@ router.post("/", upload.single("file"), async (req, res) => {
       return res.status(400).json({ error: "No text content found in file" });
     }
 
-    const totalChunks = await indexText(text);
+    // ✅ Use original filename as document source
+    const source = req.file.originalname;
+
+    const totalChunks = await indexText(text, source);
 
     // Clean up uploaded file
     fs.unlinkSync(req.file.path);
 
-    res.json({ 
+    res.json({
       success: true,
       message: "File uploaded and indexed successfully",
-      chunks: totalChunks
+      source,
+      chunks: totalChunks,
     });
   } catch (err) {
     console.error("Upload error:", err.message);
-    
+
     // Clean up uploaded file on error
     if (req.file?.path && fs.existsSync(req.file.path)) {
       fs.unlinkSync(req.file.path);
     }
-    
-    res.status(500).json({ 
-      error: err.message
+
+    res.status(500).json({
+      error: err.message,
     });
   }
 });

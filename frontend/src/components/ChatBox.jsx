@@ -33,7 +33,6 @@ export default function ChatBox() {
   const [copiedIndex, setCopiedIndex] = useState(null);
   const [copiedUserIndex, setCopiedUserIndex] = useState(null);
 
-  // 🔥 inline edit state
   const [editingIndex, setEditingIndex] = useState(null);
   const [editedText, setEditedText] = useState("");
 
@@ -73,6 +72,7 @@ export default function ChatBox() {
         {
           role: "assistant",
           text: data.answer || "⚠️ AI did not return a response.",
+          sources: data.sources || [],
           mode,
           originalQuestion: userQuestion,
         },
@@ -83,6 +83,7 @@ export default function ChatBox() {
         {
           role: "assistant",
           text: "⚠️ Something went wrong while fetching the answer.",
+          sources: [],
           mode,
           originalQuestion: userQuestion,
         },
@@ -124,7 +125,6 @@ export default function ChatBox() {
       if (updated[index + 1]?.role === "assistant") {
         updated.splice(index + 1, 1);
       }
-
       return updated;
     });
 
@@ -233,37 +233,6 @@ export default function ChatBox() {
               </div>
             )}
 
-            {/* ---------- USER ACTIONS ---------- */}
-            {msg.role === "user" && editingIndex !== i && (
-              <div className="mt-1 flex gap-4 text-xs justify-end">
-                <button
-                  onClick={() => startEdit(i, msg.text)}
-                  className="flex items-center gap-1 text-gray-400 hover:text-blue-400"
-                >
-                  <Pencil size={12} /> Edit
-                </button>
-
-                <button
-                  onClick={() => copyText(msg.text, i, true)}
-                  className={`flex items-center gap-1 ${
-                    copiedUserIndex === i
-                      ? "text-green-400"
-                      : "text-gray-400 hover:text-blue-400"
-                  }`}
-                >
-                  {copiedUserIndex === i ? (
-                    <>
-                      <Check size={12} /> Copied
-                    </>
-                  ) : (
-                    <>
-                      <Copy size={12} /> Copy
-                    </>
-                  )}
-                </button>
-              </div>
-            )}
-
             {/* ---------- AI ACTIONS ---------- */}
             {msg.role === "assistant" && msg.originalQuestion && (
               <div className="mt-1 flex gap-4 text-xs">
@@ -291,6 +260,74 @@ export default function ChatBox() {
                   className="flex items-center gap-1 text-gray-400 hover:text-green-400"
                 >
                   <RefreshCcw size={12} /> Regenerate
+                </button>
+              </div>
+            )}
+
+            {/* ---------- SOURCES ---------- */}
+            {msg.role === "assistant" && msg.sources?.length > 0 && (
+              <div className="mt-2 max-w-[75%] text-xs text-gray-400">
+                <div className="font-semibold text-gray-300 mb-1">
+                  Sources used:
+                </div>
+                <ul className="list-disc ml-5 space-y-0.5">
+                  {msg.sources.filter((src) => typeof src === "string" && src.length > 0)
+                    .map((src, idx) => {
+                      let icon = "📄"; // default = file (PDF)
+
+                      if (src.startsWith("http")) icon = "🌐";
+                      else if (src.startsWith("user-text")) icon = "📝";
+
+                      return (
+                        <li key={idx} className="flex items-center gap-2 truncate">
+                          <span>{icon}</span>
+
+                          {src.startsWith("http") ? (
+                            <a
+                              href={src}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="underline hover:text-blue-400 truncate"
+                            >
+                              {src}
+                            </a>
+                          ) : (
+                            <span className="truncate">{src}</span>
+                          )}
+                        </li>
+                      );
+                    })}
+                </ul>
+              </div>
+            )}
+
+            {/* ---------- USER ACTIONS ---------- */}
+            {msg.role === "user" && editingIndex !== i && (
+              <div className="mt-1 flex gap-4 text-xs justify-end">
+                <button
+                  onClick={() => startEdit(i, msg.text)}
+                  className="flex items-center gap-1 text-gray-400 hover:text-blue-400"
+                >
+                  <Pencil size={12} /> Edit
+                </button>
+
+                <button
+                  onClick={() => copyText(msg.text, i, true)}
+                  className={`flex items-center gap-1 ${
+                    copiedUserIndex === i
+                      ? "text-green-400"
+                      : "text-gray-400 hover:text-blue-400"
+                  }`}
+                >
+                  {copiedUserIndex === i ? (
+                    <>
+                      <Check size={12} /> Copied
+                    </>
+                  ) : (
+                    <>
+                      <Copy size={12} /> Copy
+                    </>
+                  )}
                 </button>
               </div>
             )}

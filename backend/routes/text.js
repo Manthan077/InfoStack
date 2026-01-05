@@ -11,12 +11,16 @@ router.post("/", async (req, res) => {
       return res.status(400).json({ error: "Text is required" });
     }
 
-    const totalChunks = await indexText(text);
+    // ✅ Unique source for raw text input
+    const source = `user-text-${Date.now()}`;
 
-    res.json({ 
-      success: true, 
+    const totalChunks = await indexText(text, source);
+
+    res.json({
+      success: true,
       message: "Text indexed successfully",
-      chunks: totalChunks
+      source,
+      chunks: totalChunks,
     });
   } catch (err) {
     console.error("Text indexing error:", err.message);

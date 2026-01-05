@@ -2,42 +2,52 @@ import { RecursiveCharacterTextSplitter } from "@langchain/textsplitters";
 import { generateAnswer } from "./gemini.js";
 import { qdrant } from "./qdrant.js";
 
-/* ---------- Gemini Embedding Function ---------- */
+/* ======================================================
+   GEMINI EMBEDDING FUNCTION (WEBSITE-SAFE, PRODUCTION)
+   ====================================================== */
 async function embedText(text) {
+  const safeText = text
+    .replace(/[^\x09\x0A\x0D\x20-\x7E]/g, " ")
+    .replace(/\s+/g, " ")
+    .slice(0, 7000)
+    .trim();
+
+  if (!safeText) {
+    throw new Error("Empty text after sanitization");
+  }
+
   const response = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:embedContent?key=${process.env.GEMINI_API_KEY}`,
     {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        content: {
-          parts: [{ text: text }]
-        }
-      })
+        content: { parts: [{ text: safeText }] },
+      }),
     }
   );
 
   if (!response.ok) {
     const errorText = await response.text();
-    throw new Error(`Embedding API failed: ${response.status}`);
+    console.error("🔴 GEMINI EMBEDDING ERROR:", errorText);
+    throw new Error("Bad Request");
   }
 
   const data = await response.json();
   return data.embedding.values;
 }
 
-/* ---------- Indexing ---------- */
-export async function indexText(text) {
+/* ======================================================
+   INDEXING (MULTI-DOCUMENT, WEBSITE SAFE)
+   ====================================================== */
+export async function indexText(text, source = "unknown") {
   const splitter = new RecursiveCharacterTextSplitter({
-    chunkSize: 1000,
-    chunkOverlap: 200,
+    chunkSize: 800,
+    chunkOverlap: 150,
   });
 
   const chunks = await splitter.splitText(text);
 
-  // Create collection if it doesn't exist
   const collections = await qdrant.getCollections();
   const exists = collections.collections.some(
     (c) => c.name === "rag-data"
@@ -49,7 +59,8 @@ export async function indexText(text) {
     });
   }
 
-  // Index all chunks
+  const timestamp = Date.now();
+
   for (let i = 0; i < chunks.length; i++) {
     const vector = await embedText(chunks[i]);
 
@@ -57,19 +68,26 @@ export async function indexText(text) {
       wait: true,
       points: [
         {
-          id: Date.now() + i,
+          id: timestamp + i,
           vector,
-          payload: { text: chunks[i] },
+          payload: {
+            text: chunks[i],
+            source,
+            chunk_index: i,
+            uploaded_at: new Date().toISOString(),
+          },
         },
       ],
     });
   }
 
-  console.log(`Indexing complete. Processed ${chunks.length} chunks.`);
+  console.log(`Indexing complete for ${source}. Chunks indexed: ${chunks.length}`);
   return chunks.length;
 }
 
-/* ---------- QUESTION TYPE CHECK ---------- */
+/* ======================================================
+   QUESTION TYPE CHECK
+   ====================================================== */
 function isDefinitionQuestion(question) {
   const q = question.toLowerCase().trim();
   return (
@@ -80,74 +98,88 @@ function isDefinitionQuestion(question) {
   );
 }
 
-/* ---------- ASK QUESTION ---------- */
+/* ======================================================
+   ASK QUESTION (MULTI-DOC + SOURCES)
+   ====================================================== */
 export async function askQuestion({ question, mode = "hybrid" }) {
   try {
     const queryVector = await embedText(question);
 
     const results = await qdrant.search("rag-data", {
       vector: queryVector,
-      limit: 5,
+      limit: 10,
+      with_payload: true,
     });
 
-    const contextChunks = results.map((r) => r.payload.text);
-    const context = contextChunks.join("\n");
+    const context = results.map((r) => r.payload.text).join("\n");
+
+    // ✅ EXTRACT SOURCES
+    const sources = [
+      ...new Set(results.map((r) => r.payload.source)),
+    ];
 
     /* ---------- STRICT MODE ---------- */
     if (mode === "strict") {
       if (!context || context.trim().length === 0) {
-        return "This information is not present in the uploaded document.";
+        return {
+          answer: "This information is not present in the uploaded documents.",
+          sources: [],
+        };
       }
 
-      return await generateAnswer({
+      const answer = await generateAnswer({
         systemPrompt: `
 You are a document-grounded AI assistant.
 Answer ONLY using the provided context.
 If the answer is not explicitly present, say:
-"This information is not present in the uploaded document."
+"This information is not present in the uploaded documents."
 `,
         context,
         question,
       });
+
+      return { answer, sources };
     }
 
-    /* ---------- HYBRID MODE ---------- */
+    /* ---------- HYBRID MODE (DEFINITION) ---------- */
     if (isDefinitionQuestion(question)) {
-      return await generateAnswer({
+      const answer = await generateAnswer({
         systemPrompt: `
 You are a hybrid AI assistant.
 
 Rules:
-- If the question asks for the meaning or definition of a term or name,
-  you may use general knowledge.
+- You may use general knowledge for definitions.
 - Do NOT invent document-specific facts.
-- Acknowledge document mentions if relevant.
+- Use document mentions when relevant.
 `,
         context,
         question,
       });
+
+      return { answer, sources };
     }
 
-    return await generateAnswer({
+    /* ---------- HYBRID MODE (GENERAL) ---------- */
+    const answer = await generateAnswer({
       systemPrompt: `
 You are a hybrid RAG AI assistant.
 
 Rules:
 - Use document context for document-specific facts.
 - Never fabricate document facts.
-- General explanations and advice are allowed.
+- General explanations are allowed.
 - Be honest when information is not present.
 `,
       context,
       question,
     });
 
+    return { answer, sources };
   } catch (err) {
-    if (err?.status === 429) {
-      return "⚠️ Daily AI usage limit reached. Please try again later.";
-    }
-
-    console.error("askQuestion error:", err);
-    return "⚠️ AI service is temporarily unavailable. Please try again later.";
+    console.error("askQuestion error:", err.message);
+    return {
+      answer: "⚠️ AI service is temporarily unavailable. Please try again later.",
+      sources: [],
+    };
   }
 }
