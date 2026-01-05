@@ -5,10 +5,13 @@ import {
   Copy,
   RefreshCcw,
   Check,
+  Pencil,
+  Save,
+  X,
 } from "lucide-react";
 import { BACKEND_URL } from "../config";
 
-/* ---------- Improved Empty State ---------- */
+/* ---------- Empty State ---------- */
 const INITIAL_MESSAGE = {
   role: "assistant",
   text:
@@ -25,10 +28,14 @@ export default function ChatBox() {
   const [loading, setLoading] = useState(false);
   const [sessionId, setSessionId] = useState(generateSessionId());
   const [confirmReset, setConfirmReset] = useState(false);
-
   const [mode, setMode] = useState("hybrid");
 
   const [copiedIndex, setCopiedIndex] = useState(null);
+  const [copiedUserIndex, setCopiedUserIndex] = useState(null);
+
+  // 🔥 inline edit state
+  const [editingIndex, setEditingIndex] = useState(null);
+  const [editedText, setEditedText] = useState("");
 
   const bottomRef = useRef(null);
 
@@ -36,6 +43,7 @@ export default function ChatBox() {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, loading]);
 
+  /* ---------- Send message ---------- */
   const sendMessage = async (questionOverride) => {
     const userQuestion = questionOverride || input;
     if (!userQuestion.trim() || loading) return;
@@ -84,23 +92,51 @@ export default function ChatBox() {
     }
   };
 
+  /* ---------- Reset ---------- */
   const startNewChat = () => {
     setMessages([INITIAL_MESSAGE]);
     setSessionId(generateSessionId());
     setConfirmReset(false);
   };
 
-  const copyToClipboard = (text, index) => {
+  /* ---------- Copy helpers ---------- */
+  const copyText = (text, index, isUser = false) => {
     navigator.clipboard.writeText(text);
-    setCopiedIndex(index);
-    setTimeout(() => setCopiedIndex(null), 2000);
+    isUser ? setCopiedUserIndex(index) : setCopiedIndex(index);
+    setTimeout(() => {
+      setCopiedUserIndex(null);
+      setCopiedIndex(null);
+    }, 2000);
+  };
+
+  /* ---------- Inline edit helpers ---------- */
+  const startEdit = (index, text) => {
+    setEditingIndex(index);
+    setEditedText(text);
+  };
+
+  const saveEdit = async (index) => {
+    const editedQuestion = editedText;
+
+    setMessages((prev) => {
+      const updated = [...prev];
+      updated[index] = { ...updated[index], text: editedQuestion };
+      if (updated[index + 1]?.role === "assistant") {
+        updated.splice(index + 1, 1);
+      }
+
+      return updated;
+    });
+
+    setEditingIndex(null);
+    setEditedText("");
+    await sendMessage(editedQuestion);
   };
 
   return (
     <div className="flex flex-col h-full bg-gray-800 border border-gray-700 rounded-xl overflow-hidden">
-      {/* Navbar */}
+      {/* ---------- Navbar ---------- */}
       <div className="sticky top-0 z-10 h-14 bg-gray-800/95 border-b border-gray-700 px-6 flex items-center justify-between">
-        {/* Left */}
         <div className="flex items-center gap-3">
           <Bot size={18} className="text-blue-400" />
           <span className="text-sm font-semibold text-gray-100">
@@ -108,48 +144,39 @@ export default function ChatBox() {
           </span>
         </div>
 
-        {/* Right */}
-        <div className="flex items-center gap-3">
-          {/* Session */}
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-gray-300 font-medium">
-              Session:
-            </span>
-            <span className="px-2 py-0.5 rounded-md bg-gray-700 border border-gray-600 text-gray-200 font-mono text-xs">
-              {sessionId}
-            </span>
-          </div>
+        <div className="flex items-center gap-3 text-xs text-gray-400">
+          <span className="text-sm text-gray-300">Session:</span>
+          <span className="px-2 py-0.5 rounded-md bg-gray-700 border border-gray-600 text-gray-200 font-mono">
+            {sessionId}
+          </span>
 
-          {/* Mode */}
           <select
             value={mode}
             onChange={(e) => setMode(e.target.value)}
-            className="px-2 py-1 rounded-md bg-gray-700 border border-gray-600 text-gray-200 text-xs outline-none hover:bg-gray-600"
+            className="px-2 py-1 rounded-md bg-gray-700 border border-gray-600 text-gray-200 text-xs"
           >
             <option value="hybrid">Hybrid (Doc + AI)</option>
-            <option value="strict">Strict (Doc Only)</option>
+            <option value="strict">Strict (Document Only)</option>
           </select>
 
-          {/* Reset */}
           {!confirmReset ? (
             <button
               onClick={() => setConfirmReset(true)}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gray-700 border border-gray-600 text-xs text-gray-200 hover:bg-gray-600"
+              className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gray-700 border border-gray-600 text-xs text-gray-200"
             >
-              <RotateCcw size={14} />
-              New Chat
+              <RotateCcw size={14} /> New Chat
             </button>
           ) : (
-            <div className="flex items-center gap-2">
+            <div className="flex gap-2">
               <button
                 onClick={startNewChat}
-                className="px-3 py-1.5 rounded-lg bg-red-600 text-white text-xs hover:bg-red-700"
+                className="px-3 py-1.5 rounded-lg bg-red-600 text-white text-xs"
               >
                 Confirm
               </button>
               <button
                 onClick={() => setConfirmReset(false)}
-                className="px-3 py-1.5 rounded-lg bg-gray-700 border border-gray-600 text-xs text-gray-200 hover:bg-gray-600"
+                className="px-3 py-1.5 rounded-lg bg-gray-700 border border-gray-600 text-xs text-gray-200"
               >
                 Cancel
               </button>
@@ -158,7 +185,7 @@ export default function ChatBox() {
         </div>
       </div>
 
-      {/* Messages */}
+      {/* ---------- Messages ---------- */}
       <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
         {messages.map((msg, i) => (
           <div
@@ -171,20 +198,77 @@ export default function ChatBox() {
               {msg.role === "user" ? "You" : "AI"}
             </div>
 
-            <div
-              className={`max-w-[75%] px-5 py-3 rounded-xl text-base whitespace-pre-wrap ${
-                msg.role === "user"
-                  ? "bg-blue-600 text-white rounded-br-sm"
-                  : "bg-gray-700 text-gray-100 rounded-bl-sm"
-              }`}
-            >
-              {msg.text}
-            </div>
+            {/* ---------- MESSAGE / EDIT ---------- */}
+            {editingIndex === i ? (
+              <div className="max-w-[75%] w-full">
+                <textarea
+                  value={editedText}
+                  onChange={(e) => setEditedText(e.target.value)}
+                  className="w-full rounded-lg bg-gray-700 text-gray-100 p-3 text-sm"
+                />
+                <div className="mt-1 flex gap-3 text-xs justify-end">
+                  <button
+                    onClick={() => saveEdit(i)}
+                    className="flex items-center gap-1 text-green-400"
+                  >
+                    <Save size={12} /> Save
+                  </button>
+                  <button
+                    onClick={() => setEditingIndex(null)}
+                    className="flex items-center gap-1 text-gray-400"
+                  >
+                    <X size={12} /> Cancel
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div
+                className={`max-w-[75%] px-5 py-3 rounded-xl text-base whitespace-pre-wrap ${
+                  msg.role === "user"
+                    ? "bg-blue-600 text-white rounded-br-sm"
+                    : "bg-gray-700 text-gray-100 rounded-bl-sm"
+                }`}
+              >
+                {msg.text}
+              </div>
+            )}
 
+            {/* ---------- USER ACTIONS ---------- */}
+            {msg.role === "user" && editingIndex !== i && (
+              <div className="mt-1 flex gap-4 text-xs justify-end">
+                <button
+                  onClick={() => startEdit(i, msg.text)}
+                  className="flex items-center gap-1 text-gray-400 hover:text-blue-400"
+                >
+                  <Pencil size={12} /> Edit
+                </button>
+
+                <button
+                  onClick={() => copyText(msg.text, i, true)}
+                  className={`flex items-center gap-1 ${
+                    copiedUserIndex === i
+                      ? "text-green-400"
+                      : "text-gray-400 hover:text-blue-400"
+                  }`}
+                >
+                  {copiedUserIndex === i ? (
+                    <>
+                      <Check size={12} /> Copied
+                    </>
+                  ) : (
+                    <>
+                      <Copy size={12} /> Copy
+                    </>
+                  )}
+                </button>
+              </div>
+            )}
+
+            {/* ---------- AI ACTIONS ---------- */}
             {msg.role === "assistant" && msg.originalQuestion && (
               <div className="mt-1 flex gap-4 text-xs">
                 <button
-                  onClick={() => copyToClipboard(msg.text, i)}
+                  onClick={() => copyText(msg.text, i)}
                   className={`flex items-center gap-1 ${
                     copiedIndex === i
                       ? "text-green-400"
@@ -222,7 +306,7 @@ export default function ChatBox() {
         <div ref={bottomRef} />
       </div>
 
-      {/* Input */}
+      {/* ---------- Input ---------- */}
       <div className="border-t border-gray-700 px-4 py-3 flex gap-2 items-center">
         <input
           value={input}
