@@ -11,11 +11,15 @@ router.post("/", async (req, res) => {
       return res.status(400).json({ error: "Text is required" });
     }
 
-    await indexText(text);
+    const totalChunks = await indexText(text);
 
-    res.json({ success: true, message: "Text indexed successfully" });
+    res.json({ 
+      success: true, 
+      message: "Text indexed successfully",
+      chunks: totalChunks
+    });
   } catch (err) {
-    console.error("TEXT INDEX ERROR:", err);
+    console.error("Text indexing error:", err.message);
     res.status(500).json({ error: "Text indexing failed" });
   }
 });

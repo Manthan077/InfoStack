@@ -10,36 +10,44 @@ const upload = multer({ dest: "uploads/" });
 
 router.post("/", upload.single("file"), async (req, res) => {
   try {
-    console.log("UPLOAD ROUTE HIT");
-
     if (!req.file) {
-      console.log("NO FILE RECEIVED");
       return res.status(400).json({ error: "No file uploaded" });
     }
-
-    console.log("FILE RECEIVED:", req.file.originalname);
 
     let text = "";
 
     if (req.file.mimetype === "application/pdf") {
-      console.log("Parsing PDF...");
       const data = await pdfParse(fs.readFileSync(req.file.path));
       text = data.text;
     } else {
-      console.log("Parsing text file...");
       text = fs.readFileSync(req.file.path, "utf-8");
     }
 
-    console.log("Text length:", text.length);
+    if (!text || text.trim().length === 0) {
+      return res.status(400).json({ error: "No text content found in file" });
+    }
 
-    await indexText(text);
+    const totalChunks = await indexText(text);
 
-    console.log("INDEXING COMPLETE");
+    // Clean up uploaded file
+    fs.unlinkSync(req.file.path);
 
-    res.json({ success: true });
+    res.json({ 
+      success: true,
+      message: "File uploaded and indexed successfully",
+      chunks: totalChunks
+    });
   } catch (err) {
-    console.error("UPLOAD ERROR:", err.message);
-    res.status(500).json({ error: err.message });
+    console.error("Upload error:", err.message);
+    
+    // Clean up uploaded file on error
+    if (req.file?.path && fs.existsSync(req.file.path)) {
+      fs.unlinkSync(req.file.path);
+    }
+    
+    res.status(500).json({ 
+      error: err.message
+    });
   }
 });
 

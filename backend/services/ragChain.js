@@ -1,17 +1,31 @@
 import { RecursiveCharacterTextSplitter } from "@langchain/textsplitters";
-import crypto from "crypto";
 import { generateAnswer } from "./gemini.js";
 import { qdrant } from "./qdrant.js";
 
-/* ---------- Embedding ---------- */
-function fakeEmbedding(text) {
-  const hash = crypto.createHash("sha256").update(text).digest();
-  const base = Array.from(hash).map((v) => v / 255);
+/* ---------- Gemini Embedding Function ---------- */
+async function embedText(text) {
+  const response = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:embedContent?key=${process.env.GEMINI_API_KEY}`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        content: {
+          parts: [{ text: text }]
+        }
+      })
+    }
+  );
 
-  const vector = [];
-  while (vector.length < 64) vector.push(...base);
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Embedding API failed: ${response.status}`);
+  }
 
-  return vector.slice(0, 64);
+  const data = await response.json();
+  return data.embedding.values;
 }
 
 /* ---------- Indexing ---------- */
@@ -23,25 +37,36 @@ export async function indexText(text) {
 
   const chunks = await splitter.splitText(text);
 
-  try {
-    await qdrant.deleteCollection("rag-data");
-  } catch (_) {}
+  // Create collection if it doesn't exist
+  const collections = await qdrant.getCollections();
+  const exists = collections.collections.some(
+    (c) => c.name === "rag-data"
+  );
 
-  await qdrant.createCollection("rag-data", {
-    vectors: { size: 64, distance: "Cosine" },
-  });
+  if (!exists) {
+    await qdrant.createCollection("rag-data", {
+      vectors: { size: 768, distance: "Cosine" },
+    });
+  }
 
+  // Index all chunks
   for (let i = 0; i < chunks.length; i++) {
+    const vector = await embedText(chunks[i]);
+
     await qdrant.upsert("rag-data", {
+      wait: true,
       points: [
         {
           id: Date.now() + i,
-          vector: fakeEmbedding(chunks[i]),
+          vector,
           payload: { text: chunks[i] },
         },
       ],
     });
   }
+
+  console.log(`Indexing complete. Processed ${chunks.length} chunks.`);
+  return chunks.length;
 }
 
 /* ---------- QUESTION TYPE CHECK ---------- */
@@ -55,10 +80,10 @@ function isDefinitionQuestion(question) {
   );
 }
 
-/* ---------- ASK QUESTION (FIXED & SAFE) ---------- */
+/* ---------- ASK QUESTION ---------- */
 export async function askQuestion({ question, mode = "hybrid" }) {
   try {
-    const queryVector = fakeEmbedding(question);
+    const queryVector = await embedText(question);
 
     const results = await qdrant.search("rag-data", {
       vector: queryVector,
@@ -87,7 +112,6 @@ If the answer is not explicitly present, say:
     }
 
     /* ---------- HYBRID MODE ---------- */
-
     if (isDefinitionQuestion(question)) {
       return await generateAnswer({
         systemPrompt: `
@@ -119,7 +143,6 @@ Rules:
     });
 
   } catch (err) {
-    // 🔥 FINAL GUARANTEE: ALWAYS RETURN STRING
     if (err?.status === 429) {
       return "⚠️ Daily AI usage limit reached. Please try again later.";
     }

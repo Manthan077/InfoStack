@@ -27,11 +27,15 @@ router.post("/", async (req, res) => {
       return res.status(400).json({ error: "No readable text found" });
     }
 
-    await indexText(text);
+    const totalChunks = await indexText(text);
 
-    res.json({ success: true, message: "Website indexed successfully" });
+    res.json({ 
+      success: true, 
+      message: "Website indexed successfully",
+      chunks: totalChunks
+    });
   } catch (err) {
-    console.error("WEBSITE INDEX ERROR:", err);
+    console.error("Website indexing error:", err.message);
     res.status(500).json({ error: "Website indexing failed" });
   }
 });
