@@ -81,7 +81,10 @@ export async function indexText(text, source = "unknown") {
     });
   }
 
-  console.log(`Indexing complete for ${source}. Chunks indexed: ${chunks.length}`);
+  console.log(
+    `Indexing complete for ${source}. Chunks indexed: ${chunks.length}`
+  );
+
   return chunks.length;
 }
 
@@ -103,30 +106,56 @@ function isDefinitionQuestion(question) {
    ====================================================== */
 export async function askQuestion({ question, mode = "hybrid" }) {
   try {
-    const queryVector = await embedText(question);
+    const collections = await qdrant.getCollections();
+    const hasCollection = collections.collections.some(
+      (c) => c.name === "rag-data"
+    );
 
-    const results = await qdrant.search("rag-data", {
-      vector: queryVector,
-      limit: 10,
-      with_payload: true,
-    });
-
-    const context = results.map((r) => r.payload.text).join("\n");
-
-    // ✅ EXTRACT SOURCES
-    const sources = [
-      ...new Set(results.map((r) => r.payload.source)),
-    ];
-
-    /* ---------- STRICT MODE ---------- */
+    /* ---------- STRICT MODE HARD BLOCK ---------- */
     if (mode === "strict") {
-      if (!context || context.trim().length === 0) {
+      if (!hasCollection) {
         return {
           answer: "This information is not present in the uploaded documents.",
           sources: [],
         };
       }
 
+      const info = await qdrant.getCollection("rag-data");
+      if (!info || info.points_count === 0) {
+        return {
+          answer: "This information is not present in the uploaded documents.",
+          sources: [],
+        };
+      }
+    }
+
+    /* ---------- EMBEDDING ---------- */
+    const queryVector = await embedText(question);
+
+    /* ---------- SAFE SEARCH (HYBRID FIX) ---------- */
+    const results = hasCollection
+      ? await qdrant.search("rag-data", {
+          vector: queryVector,
+          limit: 10,
+          with_payload: true,
+        })
+      : [];
+
+    /* ---------- STRICT MODE HARD BLOCK (NO MATCHES) ---------- */
+    if (mode === "strict" && results.length === 0) {
+      return {
+        answer: "This information is not present in the uploaded documents.",
+        sources: [],
+      };
+    }
+
+    const context = results.map((r) => r.payload.text).join("\n");
+    const sources = [
+      ...new Set(results.map((r) => r.payload.source)),
+    ];
+
+    /* ---------- STRICT MODE ---------- */
+    if (mode === "strict") {
       const answer = await generateAnswer({
         systemPrompt: `
 You are a document-grounded AI assistant.

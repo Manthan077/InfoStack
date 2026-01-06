@@ -36,6 +36,7 @@ export default function Sidebar() {
   const [indexedSources, setIndexedSources] = useState([]);
 
   const [confirmClear, setConfirmClear] = useState(false);
+  const [confirmDeleteId, setConfirmDeleteId] = useState(null);
 
   /* ---------- Resize ---------- */
   const startResize = () => {
@@ -53,6 +54,23 @@ export default function Sidebar() {
     resizingRef.current = false;
     document.removeEventListener("mousemove", resize);
     document.removeEventListener("mouseup", stopResize);
+  };
+
+  const deleteSource = async (src) => {
+    try {
+      await fetch(
+        `${BACKEND_URL}/documents/${encodeURIComponent(src.name)}`,
+        { method: "DELETE" }
+      );
+
+      setIndexedSources((prev) =>
+        prev.filter((s) => s.id !== src.id)
+      );
+    } catch (err) {
+      console.error("Failed to delete document:", err);
+    } finally {
+      setConfirmDeleteId(null);
+    }
   };
 
   /* ---------- Step runner ---------- */
@@ -245,16 +263,30 @@ export default function Sidebar() {
                   </span>
                 </div>
 
-                <button
-                  onClick={() =>
-                    setIndexedSources((p) =>
-                      p.filter((s) => s.id !== src.id)
-                    )
-                  }
-                  className="text-gray-400 hover:text-red-400"
-                >
-                  <X size={14} />
-                </button>
+                {confirmDeleteId !== src.id ? (
+                  <button
+                    onClick={() => setConfirmDeleteId(src.id)}
+                    className="text-gray-400 hover:text-red-400"
+                    title="Remove document"
+                  >
+                    <X size={14} />
+                  </button>
+                ) : (
+                  <div className="flex gap-2 text-xs">
+                    <button
+                      onClick={() => deleteSource(src)}
+                      className="text-red-400 hover:underline"
+                    >
+                      Confirm
+                    </button>
+                    <button
+                      onClick={() => setConfirmDeleteId(null)}
+                      className="text-gray-400 hover:underline"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                )}
               </div>
             ))}
           </div>
