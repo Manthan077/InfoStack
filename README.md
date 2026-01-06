@@ -2,10 +2,11 @@
 
 **InfoStack** is a full-stack **Retrieval-Augmented Generation (RAG)** application that allows users to upload their own data sources and interact with them through a **document-grounded AI assistant**.
 
-Unlike generic chatbots, InfoStack focuses on:
-- Grounded answers
-- Transparent retrieval
-- Clear separation between **document knowledge** and **AI reasoning**
+Unlike generic chatbots, InfoStack is built around **control, transparency, and trust**.
+
+It ensures a clear separation between:
+- **User-provided document knowledge**
+- **AI reasoning and generation**
 
 ---
 
@@ -13,13 +14,24 @@ Unlike generic chatbots, InfoStack focuses on:
 
 Traditional AI chatbots often:
 - Hallucinate answers
-- Mix external knowledge with user-provided data
-- Provide no visibility into how answers are generated
+- Mix external knowledge with private data
+- Provide no visibility into how answers are formed
 
-InfoStack solves this by:
-- Letting users **bring their own data**
-- Enforcing **document-only answers** when required
-- Making the RAG pipeline **visible, explainable, and trustworthy**
+**InfoStack solves this by design.**
+
+It allows users to:
+- Bring their **own data**
+- Choose how strictly the AI should behave
+- Clearly see *where answers come from*
+
+---
+
+## 🎯 Key Principles
+
+- Grounded answers
+- Explicit retrieval
+- Zero document hallucination in strict mode
+- Explainable RAG pipeline
 
 ---
 
@@ -28,15 +40,15 @@ InfoStack solves this by:
 ```text
 InfoStack/
 ├── backend/
-│   ├── routes/             # API endpoints (query, upload, scrape)
+│   ├── routes/             # API endpoints (query, upload, scrape, delete)
 │   ├── services/           # Gemini, Qdrant, RAG orchestration
 │   ├── uploads/            # Uploaded documents
-│   ├── docker-compose.yml  # Qdrant & backend services
+│   ├── docker-compose.yml  # Qdrant service
 │   └── index.js            # Backend entry point
 │
 ├── frontend/
 │   ├── src/
-│   │   ├── components/     # Chat, uploads, navigation
+│   │   ├── components/     # Chat UI, sidebar, uploads
 │   │   ├── pages/          # Main views
 │   │   └── App.jsx
 │   └── vite.config.js
@@ -49,31 +61,35 @@ InfoStack/
 
 ## 🏗️ System Overview
 
-InfoStack follows a **standard Retrieval-Augmented Generation (RAG) workflow** with clear separation between data ingestion, retrieval, and generation.
+InfoStack follows a **production-grade Retrieval-Augmented Generation (RAG) workflow**
+with a clear separation between ingestion, retrieval, and generation.
 
 ### High-Level Flow
-1. User uploads data (text, files, images, or websites)
-2. Data is cleaned and split into meaningful chunks
+
+1. User uploads data (text, PDFs, images, or websites)
+2. Data is cleaned and split into semantic chunks
 3. Chunks are converted into vector embeddings
 4. Embeddings are stored in the vector database (**Qdrant**)
 5. User submits a query
 6. Relevant chunks are retrieved using semantic similarity
-7. Retrieved context is passed to the LLM (**Gemini**) to generate the final answer
+7. Retrieved context is passed to **Gemini** for final answer generation
 
 ---
 
 ## 🧠 Query Modes
 
-InfoStack supports two distinct query modes to control AI behavior.
+InfoStack provides **two explicit query modes** to control AI behavior.
 
-### 🔒 Strict Mode (Document-Grounded)
+### 🔒 Strict Mode (Document-Only)
 - Answers are generated **only from uploaded documents**
-- No external or general AI knowledge is allowed
-- If the answer is not found, the system explicitly states it
-- Guarantees zero hallucination of document facts
+- No general AI knowledge is allowed
+- If the answer is not found, the system clearly states it
+- Guarantees **zero hallucination of document facts**
 
-**Ideal for:**  
-Compliance checks, academic validation, factual document QA
+Best suited for:
+- Compliance checks
+- Academic validation
+- Factual document-based Q&A
 
 ---
 
@@ -81,57 +97,46 @@ Compliance checks, academic validation, factual document QA
 - Uploaded documents are always prioritized
 - General AI reasoning is allowed when appropriate
 - Document-specific facts are never fabricated
-- Responses balance accuracy and explanation
+- Balances accuracy with explanation
 
-**Ideal for:**  
-Summaries, explanations, and exploratory questions
+Best suited for:
+- Concept explanations
+- Summaries
+- Exploratory and mixed questions
 
 ---
 
 ## ✨ Core Features
 
-- Multi-source data ingestion (Text, Files, Images, Websites)
-- Transparent and explainable indexing pipeline
-- Vector similarity search with **Qdrant**
-- Dual query modes for controlled AI behavior
+- Multi-source data ingestion (Text, PDFs, Images, Websites)
+- Transparent chunking and indexing pipeline
+- Vector similarity search powered by **Qdrant**
+- Strict and Hybrid query modes
 - Session-based conversational interface
-- Clean, developer-focused user experience
+- Source-aware responses
+- Safe handling of empty or deleted vector collections
 
 ---
 
 ## 🛠️ Tech Stack
 
-### 🎨 Frontend
-- **React** — component-based UI development
-- **Vite** — fast development server and optimized builds
-- **Tailwind CSS** — utility-first styling
-- **Lucide Icons** — modern iconography
-- Modular, component-driven architecture
+### Frontend
+- React
+- Vite
+- Tailwind CSS
+- Lucide Icons
 
----
+### Backend
+- Node.js
+- Express
+- Multer (file uploads)
+- Docker
 
-### ⚙️ Backend
-- **Node.js** — server-side runtime
-- **Express** — REST API framework
-- Route–Service architecture for maintainability
-- **Multer** — file upload handling
-- **Docker & Docker Compose** — containerized services
-
----
-
-### 🧠 AI & RAG Pipeline
-- **Gemini API** — response generation
-- **Qdrant** — vector database for semantic search
-- Chunking and embedding pipeline
-- Prompt-controlled generation for grounded responses
-
----
-
-### 🔐 Configuration & Tooling
-- Environment-based configuration using `.env`
-- Git & GitHub for version control
-- ESLint for code quality
-- npm for dependency management
+### AI & RAG Pipeline
+- Gemini API
+- Qdrant Vector Database
+- Recursive text chunking
+- Prompt-controlled generation
 
 ---
 
@@ -139,17 +144,24 @@ Summaries, explanations, and exploratory questions
 
 InfoStack is designed to:
 - Demonstrate **real-world RAG system design**
-- Provide a **transparent and trustworthy AI interface**
-- Serve as a **learning and experimentation platform**
-- Act as a **resume-ready full-stack AI project**
+- Enforce **hallucination-free document QA**
+- Provide a transparent and explainable AI interface
+- Serve as a **resume-ready full-stack AI project**
 
 ---
+
 ## 🔮 Future Enhancements
+
 - Authentication and user workspaces
-- Source-level citations in responses
+- Source-level citation highlighting
 - Multiple vector collections
 - Streaming responses
+- Usage analytics and monitoring
+
+---
 
 ## 👤 Author
 
-**Manthan Sharma**
+**Manthan Sharma**  
+Computer Science Engineering Student  
+Full-Stack & Applied AI Enthusiast
