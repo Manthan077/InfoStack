@@ -1,20 +1,17 @@
-############################
-# Environment & Secrets
-############################
+# Environment Variables
 .env
-.env.*
+.env.local
+
 *.key
 *.pem
 
-############################
 # Temporary Uploads
-############################
+
 uploads/*
 !uploads/.gitkeep
 
-############################
 # Python (Backend)
-############################
+
 __pycache__/
 *.py[cod]
 *.pyo
@@ -26,9 +23,8 @@ pip-wheel-metadata/
 .mypy_cache/
 .ipynb_checkpoints/
 
-############################
 # Vector DB / RAG Artifacts
-############################
+
 chroma/
 chromadb/
 faiss/
@@ -39,9 +35,8 @@ vectorstore/
 data/cache/
 data/tmp/
 
-############################
 # Node / Frontend
-############################
+
 node_modules/
 npm-debug.log*
 yarn-debug.log*
@@ -52,30 +47,26 @@ build/
 .next/
 out/
 
-############################
 # Frontend Frameworks
-############################
+
 .svelte-kit/
 .nuxt/
 .cache/
 
-############################
 # Logs & Runtime
-############################
+
 *.log
 logs/
 tmp/
 
-############################
 # OS & Editor
-############################
+
 .vscode/
 .idea/
 .DS_Store
 Thumbs.db
 
-############################
 # Docker
-############################
+
 .docker/
 docker-data/
