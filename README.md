@@ -157,9 +157,9 @@ docker-compose up -d
 cd backend
 npm install
 
-# Create .env file
-echo "GEMINI_API_KEY=your_api_key_here" > .env
-echo "PORT=5000" >> .env
+# Copy .env.example to .env and add your API key
+cp .env.example .env
+# Edit .env and add your GEMINI_API_KEY
 ```
 
 4. **Start Backend Server**
