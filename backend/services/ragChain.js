@@ -138,6 +138,7 @@ export async function askQuestion({ question, mode = "hybrid" }) {
           vector: queryVector,
           limit: 10,
           with_payload: true,
+          score_threshold: 0.5,
         })
       : [];
 
@@ -150,9 +151,9 @@ export async function askQuestion({ question, mode = "hybrid" }) {
     }
 
     const context = results.map((r) => r.payload.text).join("\n");
-    const sources = [
-      ...new Set(results.map((r) => r.payload.source)),
-    ];
+    const sources = results.length > 0
+      ? [...new Set(results.map((r) => r.payload.source))]
+      : [];
 
     /* ---------- STRICT MODE ---------- */
     if (mode === "strict") {
